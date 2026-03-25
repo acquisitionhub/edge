@@ -1,66 +1,235 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Edge Tracker Global</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edge Tracker Global Pro</title>
     <style>
-        :root { --bg: #0a0b10; --card: #161b22; --green: #00ff88; --red: #ff4b5c; --blue: #00d4ff; }
-        body { background: var(--bg); color: white; font-family: 'Inter', sans-serif; padding: 40px; }
-        .dashboard-grid { 
-            display: grid; 
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); 
-            gap: 20px; max-width: 1200px; margin: 0 auto; 
+        :root {
+            --bg: #0d1117;
+            --card: #161b22;
+            --border: #30363d;
+            --blue: #58a6ff;
+            --green: #3fb950;
+            --red: #f85149;
+            --text: #c9d1d9;
+            --text-dim: #8b949e;
         }
-        .asset-card { 
-            background: var(--card); border-radius: 16px; padding: 20px; 
-            border: 1px solid #30363d; transition: 0.3s;
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 40px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
-        .asset-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-        .symbol { font-size: 20px; font-weight: bold; color: var(--blue); }
-        .prob-badge { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; }
-        .pip-main { font-size: 36px; font-weight: 800; margin: 10px 0; }
-        .sub-data { font-size: 13px; color: #8b949e; display: flex; justify-content: space-between; }
-        
-        /* Dynamic Colors */
-        .high-prob { background: rgba(0, 255, 136, 0.1); color: var(--green); }
-        .low-prob { background: rgba(255, 75, 92, 0.1); color: var(--red); }
-        .pos { color: var(--green); }
-        .neg { color: var(--red); }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+
+        /* Asset Grid */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            width: 100%;
+            max-width: 1200px;
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+
+        .card:hover {
+            border-color: var(--blue);
+            transform: translateY(-2px);
+        }
+
+        .symbol-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .symbol {
+            font-size: 20px;
+            font-weight: bold;
+            color: var(--blue);
+        }
+
+        .prob-badge {
+            font-size: 11px;
+            font-weight: bold;
+            padding: 4px 8px;
+            border-radius: 6px;
+            background: rgba(88, 166, 255, 0.1);
+        }
+
+        .pip-val {
+            font-size: 42px;
+            font-weight: 800;
+            margin: 10px 0;
+        }
+
+        .pip-val.pos { color: var(--green); }
+        .pip-val.neg { color: var(--red); }
+
+        .details {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: var(--text-dim);
+            margin-top: 15px;
+        }
+
+        /* Probability Bar */
+        .prob-container {
+            margin-top: 15px;
+        }
+
+        .prob-bar-bg {
+            height: 6px;
+            background: #21262d;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .prob-fill {
+            height: 100%;
+            transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Correlation Table */
+        .matrix-section {
+            width: 100%;
+            max-width: 1200px;
+            margin-top: 60px;
+        }
+
+        .matrix-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: center;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th { color: var(--text-dim); font-weight: normal; font-size: 12px; }
+        .corr-val { font-weight: bold; }
+
     </style>
 </head>
 <body>
-    <h1 style="text-align:center; margin-bottom:40px; letter-spacing:3px;">MULTI-ASSET EDGE <span style="font-weight:100">MONITOR</span></h1>
-    
-    <div class="dashboard-grid" id="tracker">
+
+    <div class="header">
+        <h1>Global Edge Monitor</h1>
+        <div id="last-update" style="font-size: 12px; color: var(--text-dim);">Syncing with Backend...</div>
+    </div>
+
+    <div class="grid" id="asset-grid">
         </div>
 
-    <script>
-        async function refreshTracker() {
-            const res = await fetch('/api/multi-stats');
-            const data = await res.json();
-            const container = document.getElementById('tracker');
-            container.innerHTML = '';
+    <div class="matrix-section">
+        <h2 style="font-size: 16px; color: var(--text-dim); margin-bottom: 15px;">Intraday Correlation Matrix</h2>
+        <div class="matrix-card">
+            <table id="corr-table">
+                </table>
+        </div>
+    </div>
 
-            data.forEach(item => {
-                const probClass = item.prob > 60 ? 'high-prob' : 'low-prob';
-                const pipClass = item.pips >= 0 ? 'pos' : 'neg';
+    <script>
+        async function updateDashboard() {
+            try {
+                const response = await fetch('/api/full-data');
+                const data = await response.json();
                 
-                container.innerHTML += `
-                    <div class="asset-card">
-                        <div class="asset-header">
-                            <span class="symbol">${item.symbol}</span>
-                            <span class="prob-badge ${probClass}">RTO: ${item.prob}%</span>
+                // 1. Update Asset Cards
+                const grid = document.getElementById('asset-grid');
+                grid.innerHTML = data.assets.map(asset => {
+                    const isPos = asset.pips >= 0;
+                    const pipClass = isPos ? 'pos' : 'neg';
+                    const probColor = asset.prob > 75 ? 'var(--green)' : asset.prob > 45 ? 'orange' : 'var(--red)';
+                    
+                    return `
+                        <div class="card">
+                            <div class="symbol-row">
+                                <span class="symbol">${asset.symbol}</span>
+                                <span class="prob-badge" style="color: ${probColor}">RTO: ${asset.prob}%</span>
+                            </div>
+                            <div class="pip-val ${pipClass}">${isPos ? '+' : ''}${asset.pips}</div>
+                            <div class="prob-container">
+                                <div class="prob-bar-bg">
+                                    <div class="prob-fill" style="width: ${asset.prob}%; background-color: ${probColor}"></div>
+                                </div>
+                            </div>
+                            <div class="details">
+                                <span>Price: ${asset.current.toFixed(asset.symbol.includes('JPY') || asset.symbol.includes('XAU') ? 2 : 4)}</span>
+                                <span>Open: ${asset.open.toFixed(asset.symbol.includes('JPY') || asset.symbol.includes('XAU') ? 2 : 4)}</span>
+                            </div>
                         </div>
-                        <div class="pip-main ${pipClass}">${item.pips > 0 ? '+' : ''}${item.pips}</div>
-                        <div class="sub-data">
-                            <span>Price: ${item.current}</span>
-                            <span>Open: ${item.open}</span>
-                        </div>
-                    </div>
-                `;
-            });
+                    `;
+                }).join('');
+
+                // 2. Update Correlation Table
+                const table = document.getElementById('corr-table');
+                const symbols = Object.keys(data.correlation);
+                
+                let tableHtml = `<thead><tr><th></th>${symbols.map(s => `<th>${s}</th>`).join('')}</tr></thead><tbody>`;
+                
+                symbols.forEach(s1 => {
+                    tableHtml += `<tr><td style="color: var(--blue); font-weight: bold;">${s1}</td>`;
+                    symbols.forEach(s2 => {
+                        const val = data.correlation[s1][s2];
+                        const color = val > 0.7 ? 'var(--green)' : val < -0.7 ? 'var(--red)' : 'var(--text)';
+                        tableHtml += `<td class="corr-val" style="color: ${color}">${val.toFixed(2)}</td>`;
+                    });
+                    tableHtml += '</tr>';
+                });
+                
+                tableHtml += '</tbody>';
+                table.innerHTML = tableHtml;
+
+                // 3. Update Timestamp
+                document.getElementById('last-update').innerText = `Last Data Sync: ${new Date().toLocaleTimeString()}`;
+
+            } catch (error) {
+                console.error("Error updating dashboard:", error);
+                document.getElementById('last-update').innerText = "Connection Error - Backend Offline";
+            }
         }
-        setInterval(refreshTracker, 60000);
-        refreshTracker();
+
+        // Run immediately then every 60 seconds (aligned with Caching)
+        updateDashboard();
+        setInterval(updateDashboard, 60000);
     </script>
 </body>
 </html>
