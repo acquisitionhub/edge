@@ -1,81 +1,66 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <title>Edge Tracker Global Pro</title>
+    <title>Edge Tracker Global</title>
     <style>
-        :root { --bg: #0d1117; --card: #161b22; --border: #30363d; --blue: #58a6ff; --green: #3fb950; --red: #f85149; --text: #c9d1d9; }
-        body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; padding: 20px; }
-        .container { max-width: 1100px; margin: 0 auto; }
+        :root { --bg: #0a0b10; --card: #161b22; --green: #00ff88; --red: #ff4b5c; --blue: #00d4ff; }
+        body { background: var(--bg); color: white; font-family: 'Inter', sans-serif; padding: 40px; }
+        .dashboard-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); 
+            gap: 20px; max-width: 1200px; margin: 0 auto; 
+        }
+        .asset-card { 
+            background: var(--card); border-radius: 16px; padding: 20px; 
+            border: 1px solid #30363d; transition: 0.3s;
+        }
+        .asset-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .symbol { font-size: 20px; font-weight: bold; color: var(--blue); }
+        .prob-badge { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+        .pip-main { font-size: 36px; font-weight: 800; margin: 10px 0; }
+        .sub-data { font-size: 13px; color: #8b949e; display: flex; justify-content: space-between; }
         
-        /* Grid */
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 40px; }
-        .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 20px; text-align: center; }
-        .symbol { font-weight: bold; font-size: 1.2em; color: var(--blue); }
-        .pips { font-size: 2.5em; font-weight: 800; margin: 10px 0; }
-        .prob-bar { height: 4px; background: #333; border-radius: 2px; margin-top: 10px; overflow: hidden; }
-        .prob-fill { height: 100%; transition: 0.5s; }
-
-        /* Table */
-        .matrix-container { background: var(--card); padding: 20px; border-radius: 10px; border: 1px solid var(--border); overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { padding: 12px; border: 1px solid var(--border); text-align: center; font-size: 0.9em; }
-        .pos { color: var(--green); } .neg { color: var(--red); }
-        h2 { font-size: 1.1em; color: #8b949e; text-transform: uppercase; letter-spacing: 1px; }
+        /* Dynamic Colors */
+        .high-prob { background: rgba(0, 255, 136, 0.1); color: var(--green); }
+        .low-prob { background: rgba(255, 75, 92, 0.1); color: var(--red); }
+        .pos { color: var(--green); }
+        .neg { color: var(--red); }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1 style="text-align: center; margin-bottom: 30px;">GLOBAL EDGE MONITOR</h1>
-        
-        <div class="grid" id="asset-grid">
-            </div>
-
-        <div class="matrix-container">
-            <h2>Correlation Matrix (Intraday)</h2>
-            <table id="corr-table"></table>
+    <h1 style="text-align:center; margin-bottom:40px; letter-spacing:3px;">MULTI-ASSET EDGE <span style="font-weight:100">MONITOR</span></h1>
+    
+    <div class="dashboard-grid" id="tracker">
         </div>
-    </div>
 
     <script>
-        async function updateDashboard() {
-            const res = await fetch('/api/full-data');
+        async function refreshTracker() {
+            const res = await fetch('/api/multi-stats');
             const data = await res.json();
-            
-            // Update Asset Cards
-            const grid = document.getElementById('asset-grid');
-            grid.innerHTML = data.assets.map(a => {
-                const color = a.pips >= 0 ? 'var(--green)' : 'var(--red)';
-                const probColor = a.prob > 70 ? 'var(--green)' : a.prob > 40 ? 'orange' : 'var(--red)';
-                return `
-                    <div class="card">
-                        <div class="symbol">${a.symbol}</div>
-                        <div class="pips" style="color:${color}">${a.pips > 0 ? '+' : ''}${a.pips}</div>
-                        <div style="font-size: 0.8em; color: #8b949e;">RTO Prob: ${a.prob}%</div>
-                        <div class="prob-bar"><div class="prob-fill" style="width:${a.prob}%; background:${probColor}"></div></div>
+            const container = document.getElementById('tracker');
+            container.innerHTML = '';
+
+            data.forEach(item => {
+                const probClass = item.prob > 60 ? 'high-prob' : 'low-prob';
+                const pipClass = item.pips >= 0 ? 'pos' : 'neg';
+                
+                container.innerHTML += `
+                    <div class="asset-card">
+                        <div class="asset-header">
+                            <span class="symbol">${item.symbol}</span>
+                            <span class="prob-badge ${probClass}">RTO: ${item.prob}%</span>
+                        </div>
+                        <div class="pip-main ${pipClass}">${item.pips > 0 ? '+' : ''}${item.pips}</div>
+                        <div class="sub-data">
+                            <span>Price: ${item.current}</span>
+                            <span>Open: ${item.open}</span>
+                        </div>
                     </div>
                 `;
-            }).join('');
-
-            // Update Correlation Table
-            const table = document.getElementById('corr-table');
-            const symbols = Object.keys(data.correlation);
-            let html = `<tr><th></th>${symbols.map(s => `<th>${s}</th>`).join('')}</tr>`;
-            
-            symbols.forEach(s1 => {
-                html += `<tr><td style="font-weight:bold">${s1}</td>`;
-                symbols.forEach(s2 => {
-                    const val = data.correlation[s1][s2];
-                    const cls = val > 0.6 ? 'pos' : val < -0.6 ? 'neg' : '';
-                    html += `<td class="${cls}">${val.toFixed(2)}</td>`;
-                });
-                html += '</tr>';
             });
-            table.innerHTML = html;
         }
-
-        setInterval(updateDashboard, 60000);
-        updateDashboard();
+        setInterval(refreshTracker, 60000);
+        refreshTracker();
     </script>
 </body>
 </html>
