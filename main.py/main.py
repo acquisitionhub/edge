@@ -1,13 +1,17 @@
 from flask import Flask, render_template, jsonify
+from flask_caching import Cache
 import requests
 import numpy as np
 from datetime import datetime
 
 app = Flask(__name__)
 
-# --- CONFIGURATION ---
+# --- CACHE CONFIGURATION ---
+# This saves data in your server's RAM for 60 seconds
+cache = Cache(config={'CACHE_TYPE': 'SimpleCache'})
+cache.init_app(app)
+
 API_KEY = "YOUR_ALPHA_VANTAGE_KEY"
-# Major FX, Gold (XAUUSD), and SP500 (SPX)
 WATCHLIST = ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD", "SPX"]
 
 def get_multiplier(symbol):
@@ -28,15 +32,14 @@ def fetch_data(symbol):
         
         times = sorted(ts.keys())
         current_price = float(ts[times[-1]]["4. close"])
-        daily_open = float(ts[times[0]]["1. open"]) # Start of available 15m data
+        daily_open = float(ts[times[0]]["1. open"]) 
         
-        # Calculate Pips
         mult = get_multiplier(symbol)
         pips = round((current_price - daily_open) * mult, 1)
         
-        # RTO Probability Logic
+        # RTO Probability Logic: The further the stretch, the higher the snap-back chance
         abs_pips = abs(pips)
-        prob = 90 if abs_pips < 10 else 70 if abs_pips < 35 else 30
+        prob = 95 if abs_pips < 8 else 75 if abs_pips < 30 else 35
         
         return {
             "symbol": symbol,
@@ -44,13 +47,16 @@ def fetch_data(symbol):
             "open": daily_open,
             "pips": pips,
             "prob": prob,
-            "history": [float(ts[t]["4. close"]) for t in times[-10:]] # Last 10 periods
+            "history": [float(ts[t]["4. close"]) for t in times[-10:]]
         }
-    except:
+    except Exception as e:
+        print(f"Error fetching {symbol}: {e}")
         return None
 
 @app.route('/api/full-data')
+@cache.cached(timeout=60) # <--- THE CACHE BARRIER
 def get_full_data():
+    print("Fetching fresh market data...") # This only prints once every 60s
     results = []
     for s in WATCHLIST:
         data = fetch_data(s)
@@ -64,7 +70,6 @@ def get_full_data():
             if s1['symbol'] == s2['symbol']:
                 matrix[s1['symbol']][s2['symbol']] = 1.0
             else:
-                # Basic correlation coefficient
                 corr = np.corrcoef(s1['history'], s2['history'])[0, 1]
                 matrix[s1['symbol']][s2['symbol']] = round(corr, 2)
                 
